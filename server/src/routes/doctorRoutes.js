@@ -4,6 +4,38 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const { searchDoctors, getDoctorAvailability } = require('../controllers/doctorController');
 const DoctorProfile = require('../models/DoctorProfile');
 const User = require('../models/User');
+const axios = require('axios');
+
+// Helper function to geocode address
+const geocodeAddress = async (address) => {
+    try {
+        // Using OpenStreetMap Nominatim API for geocoding
+        const response = await axios.get('https://nominatim.openstreetmap.org/search', {
+            params: {
+                q: address,
+                format: 'json',
+                limit: 1
+            },
+            headers: {
+                'User-Agent': 'CareBridge Healthcare App'
+            }
+        });
+
+        if (response.data && response.data.length > 0) {
+            return {
+                type: 'Point',
+                coordinates: [
+                    parseFloat(response.data[0].lon),
+                    parseFloat(response.data[0].lat)
+                ]
+            };
+        }
+        throw new Error('No coordinates found for address');
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        throw error;
+    }
+};
 
 // Search doctors with filters
 router.get('/search', protect, searchDoctors);
@@ -46,7 +78,8 @@ router.put('/profile', protect, authorize('doctor'), async (req, res) => {
             availability,
             languages,
             bio,
-            achievements
+            achievements,
+            address // Add address field for geocoding
         } = req.body;
 
         // Validate time format for availability
@@ -62,18 +95,35 @@ router.put('/profile', protect, authorize('doctor'), async (req, res) => {
             }
         }
 
+        // Prepare update object
+        const updateData = {
+            specialization,
+            qualifications,
+            experience,
+            consultationFee,
+            availability,
+            languages,
+            bio,
+            achievements
+        };
+
+        // If address is provided, geocode it and add location
+        if (address) {
+            try {
+                const location = await geocodeAddress(address);
+                updateData.location = location;
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                return res.status(400).json({
+                    success: false,
+                    message: 'Failed to geocode address. Please provide a valid address.'
+                });
+            }
+        }
+
         const profile = await DoctorProfile.findOneAndUpdate(
             { user: req.user._id },
-            {
-                specialization,
-                qualifications,
-                experience,
-                consultationFee,
-                availability,
-                languages,
-                bio,
-                achievements
-            },
+            updateData,
             { 
                 new: true, 
                 runValidators: true,
@@ -86,6 +136,7 @@ router.put('/profile', protect, authorize('doctor'), async (req, res) => {
             data: profile
         });
     } catch (error) {
+        console.error('Profile update error:', error);
         res.status(500).json({ 
             success: false,
             message: 'Server error', 

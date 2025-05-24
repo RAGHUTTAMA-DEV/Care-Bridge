@@ -87,11 +87,24 @@ const bookAppointment = async (req, res) => {
 // @access  Private
 const getAppointments = async (req, res) => {
     try {
-        const { status, date, upcoming } = req.query;
+        const { status, date, upcoming, patientId, doctorId, approvalStatus } = req.query;
         const query = {};
 
-        // Set query based on user role
-        if (req.user.role === 'doctor') {
+        console.log('GetAppointments request:', {
+            user: {
+                id: req.user._id,
+                role: req.user.role,
+                email: req.user.email
+            },
+            query: req.query
+        });
+
+        // Set query based on user role and provided IDs
+        if (patientId) {
+            query.patient = patientId;
+        } else if (doctorId) {
+            query.doctor = doctorId;
+        } else if (req.user.role === 'doctor') {
             query.doctor = req.user._id;
         } else {
             query.patient = req.user._id;
@@ -101,33 +114,69 @@ const getAppointments = async (req, res) => {
         if (status) {
             query.status = status;
         }
+        if (approvalStatus) {
+            query.approvalStatus = approvalStatus;
+        }
         if (date) {
             const startDate = new Date(date);
             startDate.setHours(0, 0, 0, 0);
             const endDate = new Date(date);
             endDate.setHours(23, 59, 59, 999);
-            query.date = { $gte: startDate, $lte: endDate };
+            query.appointmentTime = { $gte: startDate, $lte: endDate };
         }
         if (upcoming === 'true') {
-            query.date = { $gte: new Date() };
+            const now = new Date();
+            query.appointmentTime = { $gte: now };
+            query.status = { $nin: ['cancelled', 'completed'] };
+            console.log('Upcoming appointments query:', {
+                now,
+                query: {
+                    appointmentTime: query.appointmentTime,
+                    status: query.status,
+                    patient: query.patient,
+                    doctor: query.doctor
+                }
+            });
         }
 
+        console.log('Final constructed query:', JSON.stringify(query, null, 2));
+
+        // First, let's check if we have any appointments at all
+        const totalAppointments = await Appointment.countDocuments();
+        console.log(`Total appointments in database: ${totalAppointments}`);
+
+        // Then check appointments matching our query
         const appointments = await Appointment.find(query)
             .populate('patient', 'firstName lastName email phone')
-            .populate('doctor', 'firstName lastName email phone')
-            .populate('doctorProfile', 'specialization consultationFee')
-            .sort({ date: 1, startTime: 1 });
+            .populate('doctor', 'firstName lastName specialization')
+            .populate('hospital', 'name address')
+            .populate('approvedBy', 'firstName lastName')
+            .populate('messages.sender', 'firstName lastName role')
+            .sort({ appointmentTime: 1 });
 
-        res.json({
-            success: true,
-            data: appointments
-        });
+        console.log(`Found ${appointments.length} appointments matching query`);
+        if (appointments.length === 0) {
+            // If no appointments found, let's check what appointments we have
+            const allAppointments = await Appointment.find()
+                .populate('patient', 'firstName lastName email')
+                .populate('doctor', 'firstName lastName')
+                .select('appointmentTime status patient doctor')
+                .lean();
+            console.log('All appointments in database:', allAppointments.map(apt => ({
+                id: apt._id,
+                appointmentTime: apt.appointmentTime,
+                status: apt.status,
+                patient: apt.patient ? `${apt.patient.firstName} ${apt.patient.lastName}` : 'No patient',
+                doctor: apt.doctor ? `${apt.doctor.firstName} ${apt.doctor.lastName}` : 'No doctor'
+            })));
+        }
+
+        res.json(appointments);
     } catch (error) {
         console.error('Error getting appointments:', error);
         res.status(500).json({
-            success: false,
             message: 'Failed to get appointments',
-            error: error.message
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

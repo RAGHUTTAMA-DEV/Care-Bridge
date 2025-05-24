@@ -58,17 +58,30 @@ export const HealthcareProvider = ({ children }) => {
 
             // Set a timeout for the geolocation request
             const timeoutId = setTimeout(() => {
-                const error = new Error('Location request timed out. Please try again.');
+                const error = new Error('Location request is taking longer than expected. Please check your internet connection and try again.');
                 setError(error.message);
                 reject(error);
-            }, 10000); // 10 second timeout
+            }, 15000); // Increased to 15 seconds
+
+            const options = {
+                enableHighAccuracy: true,
+                timeout: 15000, // Match the timeout with the timeoutId
+                maximumAge: 0
+            };
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     clearTimeout(timeoutId);
+                    if (!position?.coords?.latitude || !position?.coords?.longitude) {
+                        const error = new Error('Invalid location data received. Please try again.');
+                        setError(error.message);
+                        reject(error);
+                        return;
+                    }
                     const location = {
                         latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
                     };
                     setUserLocation(location);
                     setError(null);
@@ -80,14 +93,14 @@ export const HealthcareProvider = ({ children }) => {
                     let errorMessage;
                     switch (error.code) {
                         case error.PERMISSION_DENIED:
-                            errorMessage = 'Location access was denied. Please enable location access in your browser settings.';
+                            errorMessage = 'Location access was denied. Please enable location access in your browser settings to find nearby hospitals.';
                             setPermissionState('denied');
                             break;
                         case error.POSITION_UNAVAILABLE:
-                            errorMessage = 'Location information is unavailable. Please try again.';
+                            errorMessage = 'Location information is unavailable. Please check your device\'s location services and try again.';
                             break;
                         case error.TIMEOUT:
-                            errorMessage = 'Location request timed out. Please try again.';
+                            errorMessage = 'Location request timed out. Please check your internet connection and try again.';
                             break;
                         default:
                             errorMessage = 'An error occurred while getting your location. Please try again.';
@@ -95,11 +108,7 @@ export const HealthcareProvider = ({ children }) => {
                     setError(errorMessage);
                     reject(new Error(errorMessage));
                 },
-                {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                }
+                options
             );
         });
     };

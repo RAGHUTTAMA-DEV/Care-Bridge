@@ -11,106 +11,105 @@ const appointmentSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    doctorProfile: {
+    hospital: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'DoctorProfile',
+        ref: 'Hospital',
         required: true
     },
-    date: {
+    appointmentTime: {
         type: Date,
         required: true
     },
-    startTime: {
-        type: String,
-        required: true
-    },
-    endTime: {
+    reason: {
         type: String,
         required: true
     },
     status: {
         type: String,
-        enum: ['scheduled', 'in_queue', 'in_progress', 'completed', 'cancelled', 'no_show'],
-        default: 'scheduled'
+        enum: ['pending', 'approved', 'rejected', 'completed', 'cancelled'],
+        default: 'pending'
     },
-    queueNumber: {
-        type: Number
+    approvalStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending'
     },
-    estimatedWaitTime: {
-        type: Number // in minutes
+    approvalMessage: {
+        type: String,
+        default: ''
     },
-    actualWaitTime: {
-        type: Number // in minutes
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     },
-    symptoms: {
-        type: String
-    },
-    notes: {
-        type: String
-    },
-    prescription: {
-        type: String
-    },
-    followUpDate: {
+    approvedAt: {
         type: Date
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
+    notes: {
+        type: String,
+        default: ''
     },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    }
+    messages: [{
+        sender: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true
+        },
+        message: {
+            type: String,
+            required: true
+        },
+        timestamp: {
+            type: Date,
+            default: Date.now
+        },
+        isRead: {
+            type: Boolean,
+            default: false
+        }
+    }]
 }, {
     timestamps: true
 });
 
 // Indexes for efficient querying
-appointmentSchema.index({ doctor: 1, date: 1, status: 1 });
-appointmentSchema.index({ patient: 1, date: 1 });
-appointmentSchema.index({ status: 1, queueNumber: 1 });
+appointmentSchema.index({ patient: 1, appointmentTime: 1 });
+appointmentSchema.index({ doctor: 1, appointmentTime: 1 });
+appointmentSchema.index({ hospital: 1, appointmentTime: 1 });
+appointmentSchema.index({ status: 1, appointmentTime: 1 });
 
-// Method to calculate estimated wait time
-appointmentSchema.methods.calculateEstimatedWaitTime = async function() {
-    const DoctorProfile = mongoose.model('DoctorProfile');
-    const doctorProfile = await DoctorProfile.findById(this.doctorProfile);
-    
-    if (!doctorProfile) return null;
+// Virtual for checking if appointment is upcoming
+appointmentSchema.virtual('isUpcoming').get(function() {
+    return this.appointmentTime > new Date() && this.status !== 'cancelled';
+});
 
-    // Get average consultation time from doctor's profile or use default
-    const avgConsultationTime = doctorProfile.avgConsultationTime || 15; // default 15 minutes
+// Method to check if appointment can be cancelled
+appointmentSchema.methods.canBeCancelled = function() {
+    const hoursUntilAppointment = (this.appointmentTime - new Date()) / (1000 * 60 * 60);
+    return hoursUntilAppointment >= 24 && this.status !== 'completed';
+};
 
-    // Count patients ahead in queue
-    const patientsAhead = await this.constructor.countDocuments({
-        doctor: this.doctor,
-        date: this.date,
-        status: { $in: ['scheduled', 'in_queue'] },
-        queueNumber: { $lt: this.queueNumber }
+// Method to add a message to the appointment
+appointmentSchema.methods.addMessage = async function(senderId, message) {
+    this.messages.push({
+        sender: senderId,
+        message,
+        timestamp: new Date()
     });
-
-    return patientsAhead * avgConsultationTime;
+    await this.save();
+    return this;
 };
 
-// Method to update queue status
-appointmentSchema.methods.updateQueueStatus = async function() {
-    const now = new Date();
-    const appointmentDate = new Date(this.date);
-    
-    // If appointment is today and within time window
-    if (now.toDateString() === appointmentDate.toDateString()) {
-        const currentTime = now.getHours() * 60 + now.getMinutes(); // Convert to minutes
-        const appointmentTime = parseInt(this.startTime.split(':')[0]) * 60 + 
-                              parseInt(this.startTime.split(':')[1]);
-
-        if (currentTime >= appointmentTime - 30 && currentTime <= appointmentTime + 30) {
-            this.status = 'in_queue';
-            this.estimatedWaitTime = await this.calculateEstimatedWaitTime();
-            await this.save();
+// Method to mark messages as read
+appointmentSchema.methods.markMessagesAsRead = async function(userId) {
+    this.messages = this.messages.map(msg => {
+        if (msg.sender.toString() !== userId.toString()) {
+            msg.isRead = true;
         }
-    }
+        return msg;
+    });
+    await this.save();
+    return this;
 };
 
-const Appointment = mongoose.model('Appointment', appointmentSchema);
-
-module.exports = Appointment; 
+module.exports = mongoose.model('Appointment', appointmentSchema); 

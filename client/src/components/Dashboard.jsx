@@ -9,28 +9,35 @@ const Dashboard = () => {
             case 'patient':
                 return (
                     <div className="space-y-6">
-                        <h2 className="text-2xl font-bold text-gray-900">Welcome, {user.firstName}!</h2>
+                        <h2 className="text-2xl font-bold text-gray-900">Patient Dashboard</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            <Link
-                                to="/doctors/search"
-                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                            >
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Find a Doctor</h3>
-                                <p className="text-gray-600">Search for doctors by specialization, location, or availability.</p>
-                            </Link>
-                            <Link
-                                to="/hospitals/search"
-                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                            >
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Find a Hospital</h3>
-                                <p className="text-gray-600">Search for hospitals near you and view their services.</p>
-                            </Link>
                             <Link
                                 to="/appointments"
                                 className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
                             >
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">My Appointments</h3>
                                 <p className="text-gray-600">View and manage your upcoming appointments.</p>
+                            </Link>
+                            <Link
+                                to="/join-queue"
+                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                            >
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Join Queue</h3>
+                                <p className="text-gray-600">Find and join queues at nearby hospitals.</p>
+                            </Link>
+                            <Link
+                                to="/doctor/search"
+                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                            >
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Find Doctors</h3>
+                                <p className="text-gray-600">Search for doctors and book appointments.</p>
+                            </Link>
+                            <Link
+                                to="/disease-prediction"
+                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                            >
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Disease Prediction</h3>
+                                <p className="text-gray-600">Get insights about possible conditions based on your symptoms.</p>
                             </Link>
                         </div>
                     </div>
@@ -42,18 +49,18 @@ const Dashboard = () => {
                         <h2 className="text-2xl font-bold text-gray-900">Doctor Dashboard</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             <Link
+                                to="/doctor/dashboard"
+                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                            >
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">My Dashboard</h3>
+                                <p className="text-gray-600">View and manage your appointments and patient queue.</p>
+                            </Link>
+                            <Link
                                 to="/doctor/profile"
                                 className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
                             >
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">My Profile</h3>
                                 <p className="text-gray-600">Update your profile information and availability.</p>
-                            </Link>
-                            <Link
-                                to="/doctor/queue"
-                                className="block p-6 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow"
-                            >
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">Patient Queue</h3>
-                                <p className="text-gray-600">View and manage your patient queue.</p>
                             </Link>
                             <Link
                                 to="/appointments"

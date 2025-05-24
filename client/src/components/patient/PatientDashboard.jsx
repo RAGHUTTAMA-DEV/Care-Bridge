@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { doctorService, queueService } from '../../services/api';
+import DiseasePrediction from './DiseasePrediction';
 
 const PatientDashboard = () => {
     const { user } = useAuth();
@@ -8,7 +9,7 @@ const PatientDashboard = () => {
     const [queues, setQueues] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('appointments');
+    const [activeTab, setActiveTab] = useState('appointments');  // Options: appointments, queues, prediction
     const [selectedDoctor, setSelectedDoctor] = useState(null);
     const [selectedDate, setSelectedDate] = useState('');
     const [formData, setFormData] = useState({
@@ -129,7 +130,7 @@ const PatientDashboard = () => {
                 {/* Navigation Tabs */}
                 <div className="border-b border-gray-200">
                     <nav className="-mb-px flex">
-                        {['appointments', 'queues'].map((tab) => (
+                        {['appointments', 'queues', 'prediction'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab)}
@@ -273,6 +274,13 @@ const PatientDashboard = () => {
                     </div>
                 )}
 
+                {/* Disease Prediction Tab */}
+                {activeTab === 'prediction' && (
+                    <div className="p-6">
+                        <DiseasePrediction />
+                    </div>
+                )}
+
                 {/* Queues Tab */}
                 {activeTab === 'queues' && (
                     <div className="p-6">
@@ -293,13 +301,16 @@ const PatientDashboard = () => {
                                             <div className="flex items-center justify-between">
                                                 <div>
                                                     <p className="text-sm font-medium text-gray-900">
-                                                        Your Position: {queue.patients.findIndex(p => p._id === user._id) + 1}
+                                                        Your Position: {queue.patients.findIndex(p => p.patient === user._id || p.patient._id === user._id) + 1} of {queue.patients.length}
                                                     </p>
                                                     <p className="text-sm text-gray-500">
-                                                        Status: {queue.patients.find(p => p._id === user._id)?.status || 'waiting'}
+                                                        Status: {queue.patients.find(p => p.patient === user._id || p.patient._id === user._id)?.status || 'waiting'}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500">
+                                                        Estimated Wait: {queue.patients.find(p => p.patient === user._id || p.patient._id === user._id)?.estimatedWaitTime || queue.averageWaitTime} minutes
                                                     </p>
                                                 </div>
-                                                {queue.patients.find(p => p._id === user._id) ? (
+                                                {queue.patients.find(p => p.patient === user._id || p.patient._id === user._id) ? (
                                                     <button
                                                         onClick={() => handleLeaveQueue(queue._id)}
                                                         className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"

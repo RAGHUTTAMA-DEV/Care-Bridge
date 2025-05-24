@@ -14,6 +14,7 @@ const DoctorProfile = () => {
         consultationFee: '',
         languages: '',
         bio: '',
+        address: '',
         availability: {
             day: 'Monday',
             startTime: '09:00',
@@ -47,7 +48,8 @@ const DoctorProfile = () => {
                 experience: response.data.experience || '',
                 consultationFee: response.data.consultationFee || '',
                 languages: response.data.languages?.join(', ') || '',
-                bio: response.data.bio || ''
+                bio: response.data.bio || '',
+                address: response.data.address || ''
             }));
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to fetch profile');
@@ -106,7 +108,8 @@ const DoctorProfile = () => {
                 experience: parseInt(formData.experience),
                 consultationFee: parseFloat(formData.consultationFee),
                 languages: formData.languages.split(',').map(lang => lang.trim()),
-                bio: formData.bio
+                bio: formData.bio,
+                address: formData.address
             };
             const response = await doctorService.updateProfile(updateData);
             setProfile(response.data);
@@ -273,6 +276,22 @@ const DoctorProfile = () => {
                                     onChange={handleInputChange}
                                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                                 />
+                            </div>
+                            <div className="sm:col-span-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                    Address
+                                </label>
+                                <input
+                                    type="text"
+                                    name="address"
+                                    value={formData.address}
+                                    onChange={handleInputChange}
+                                    placeholder="Enter your full address for location-based search"
+                                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                                />
+                                <p className="mt-1 text-sm text-gray-500">
+                                    Your address will be used to help patients find you. Make sure to provide a complete and accurate address.
+                                </p>
                             </div>
                         </div>
                         <div>

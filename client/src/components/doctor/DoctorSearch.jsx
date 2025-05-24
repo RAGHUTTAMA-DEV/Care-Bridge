@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { doctorService } from '../../services/api';
 import { useGeolocation } from '../../hooks/useGeolocation';
+import BookAppointment from '../appointment/BookAppointment';
 
 const DoctorSearch = () => {
     const { user } = useAuth();
@@ -9,6 +10,7 @@ const DoctorSearch = () => {
     const [doctors, setDoctors] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [selectedDoctor, setSelectedDoctor] = useState(null);
 
     const searchNearbyDoctors = async () => {
         try {
@@ -32,8 +34,8 @@ const DoctorSearch = () => {
             // Debug logging
             console.log('Raw API response:', response);
 
-            // Handle both array response and object response formats
-            const doctors = Array.isArray(response) ? response : response?.data?.data || [];
+            // Response is already the data array
+            const doctors = Array.isArray(response) ? response : [];
             
             console.log('Found doctors:', {
                 count: doctors.length,
@@ -59,6 +61,14 @@ const DoctorSearch = () => {
             searchNearbyDoctors();
         }
     }, [location]);
+
+    const handleBookAppointment = (doctor) => {
+        setSelectedDoctor(doctor);
+    };
+
+    const handleCloseBooking = () => {
+        setSelectedDoctor(null);
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -103,6 +113,30 @@ const DoctorSearch = () => {
                 <div className="text-center py-12">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
                     <p className="mt-2 text-sm text-gray-600">Finding nearby doctors...</p>
+                </div>
+            )}
+
+            {/* Booking Modal */}
+            {selectedDoctor && (
+                <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold text-gray-900">
+                                    Book Appointment
+                                </h2>
+                                <button
+                                    onClick={handleCloseBooking}
+                                    className="text-gray-400 hover:text-gray-500"
+                                >
+                                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <BookAppointment doctor={selectedDoctor} onClose={handleCloseBooking} />
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -151,7 +185,7 @@ const DoctorSearch = () => {
 
                                 <div className="mt-6">
                                     <button
-                                        onClick={() => {/* Handle booking */}}
+                                        onClick={() => handleBookAppointment(doctor)}
                                         className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                                     >
                                         Book Appointment

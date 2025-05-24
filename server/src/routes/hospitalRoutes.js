@@ -113,12 +113,29 @@ router.get('/:hospitalId/doctors', protect, async (req, res) => {
             return res.status(404).json({ message: 'Hospital not found' });
         }
 
-        const doctors = await DoctorProfile.find({ hospitalId: hospital._id })
-            .populate('user', '-password');
+        // Find doctors in the User collection
+        const doctors = await User.find({ 
+            role: 'doctor',
+            hospitalId: hospital._id 
+        }).select('-password');
+
+        // Get doctor profiles for additional information
+        const doctorProfiles = await DoctorProfile.find({
+            user: { $in: doctors.map(d => d._id) }
+        }).populate('user', '-password');
+
+        // Combine user and profile data
+        const doctorsWithProfiles = doctors.map(doctor => {
+            const profile = doctorProfiles.find(p => p.user._id.toString() === doctor._id.toString());
+            return {
+                ...doctor.toObject(),
+                profile: profile || null
+            };
+        });
 
         res.json({
             hospital,
-            doctors
+            doctors: doctorsWithProfiles
         });
     } catch (error) {
         res.status(500).json({ message: 'Server error', error: error.message });

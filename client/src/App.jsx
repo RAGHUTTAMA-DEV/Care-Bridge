@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navigation from './components/Navigation';
+import ChatWidget from './components/ChatWidget';
 import Login from './components/auth/Login';
 import Register from './components/auth/Register';
 import Dashboard from './components/Dashboard';
@@ -11,6 +12,13 @@ import DoctorProfile from './components/doctor/DoctorProfile';
 import HospitalDetails from './components/hospital/HospitalDetails';
 import NotFound from './components/NotFound';
 import NearbyDoctors from './components/doctor/NearbyDoctors';
+import AppointmentList from './components/appointment/AppointmentList';
+import BookAppointment from './components/appointment/BookAppointment';
+import DoctorQueue from './components/appointment/DoctorQueue';
+import StaffQueueManagement from './components/staff/StaffQueueManagement';
+import JoinQueue from './components/appointment/JoinQueue';
+import DoctorDashboard from './pages/DoctorDashboard';
+import DiseasePrediction from './components/patient/DiseasePrediction';
 
 // Protected Route component
 const ProtectedRoute = ({ children, roles = [] }) => {
@@ -44,7 +52,8 @@ const App = () => {
     return (
         <AuthProvider>
             <Router>
-                <Routes>
+                <div className="relative">
+                    <Routes>
                     {/* Public Routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
@@ -55,6 +64,70 @@ const App = () => {
                         element={
                             <ProtectedRoute>
                                 <Dashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Doctor Dashboard */}
+                    <Route
+                        path="/doctor/dashboard"
+                        element={
+                            <ProtectedRoute roles={['doctor']}>
+                                <DoctorDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Appointment Routes */}
+                    <Route
+                        path="/appointments"
+                        element={
+                            <ProtectedRoute>
+                                <AppointmentList />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/appointments/book/:doctorId"
+                        element={
+                            <ProtectedRoute roles={['patient']}>
+                                <BookAppointment />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Disease Prediction Route */}
+                    <Route
+                        path="/disease-prediction"
+                        element={
+                            <ProtectedRoute roles={['patient']}>
+                                <DiseasePrediction />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Queue Management Routes */}
+                    <Route
+                        path="/doctor/queue"
+                        element={
+                            <ProtectedRoute roles={['doctor']}>
+                                <DoctorQueue />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/staff/queue-management"
+                        element={
+                            <ProtectedRoute roles={['staff']}>
+                                <StaffQueueManagement />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/join-queue"
+                        element={
+                            <ProtectedRoute roles={['patient']}>
+                                <JoinQueue />
                             </ProtectedRoute>
                         }
                     />
@@ -121,7 +194,9 @@ const App = () => {
 
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
-                </Routes>
+                    </Routes>
+                    <ChatWidget />
+                </div>
             </Router>
         </AuthProvider>
     );

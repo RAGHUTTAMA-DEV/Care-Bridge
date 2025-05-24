@@ -83,6 +83,10 @@ const DoctorProfileSchema = new mongoose.Schema({
       trim: true
     }
   }],
+  address: {
+    type: String,
+    required: true
+  },
   location: {
     type: {
       type: String,
@@ -95,6 +99,16 @@ const DoctorProfileSchema = new mongoose.Schema({
       index: '2dsphere'
     }
   },
+  rating: {
+    type: Number,
+    min: 0,
+    max: 5,
+    default: 0
+  },
+  totalRatings: {
+    type: Number,
+    default: 0
+  }
 }, {
   timestamps: true
 });

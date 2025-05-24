@@ -44,18 +44,24 @@ const StaffDashboard = () => {
             ]);
 
             // Extract doctors from the response
-            const doctorsData = doctorsResponse.doctors || [];
+            const doctorsData = Array.isArray(doctorsResponse) ? doctorsResponse : 
+                              (doctorsResponse.doctors || []);
             setDoctors(doctorsData);
 
-            // Extract queues from the response
-            const queuesData = queuesResponse.data || [];
-            setQueues(queuesData);
-
-            console.log('Fetched data:', {
-                hospital: hospitalResponse.data,
-                doctors: doctorsData,
-                queues: queuesData
+            // Extract and process queues from the response
+            const queuesData = Array.isArray(queuesResponse) ? queuesResponse : 
+                             (queuesResponse.data || []);
+            
+            // Sort queues by date and status
+            const sortedQueues = queuesData.sort((a, b) => {
+                // Active queues first
+                if (a.status === 'active' && b.status !== 'active') return -1;
+                if (a.status !== 'active' && b.status === 'active') return 1;
+                // Then by date
+                return new Date(b.date) - new Date(a.date);
             });
+            
+            setQueues(sortedQueues);
         } catch (err) {
             console.error('Error fetching hospital data:', err);
             setError(err.response?.data?.message || 'Failed to fetch hospital data');
@@ -100,16 +106,31 @@ const StaffDashboard = () => {
         e.preventDefault();
         try {
             setError('');
-            await queueService.createQueue(user.hospitalId, {
-                name: formData.queueName,
-                maxPatients: parseInt(formData.maxPatients),
-                doctorId: selectedDoctor?._id
-            });
+            if (!formData.doctorId) {
+                throw new Error('Please select a doctor');
+            }
+            
+            const queueData = {
+                hospitalId: user.hospitalId,
+                doctorId: formData.doctorId,
+                date: new Date().toISOString()
+            };
+            
+            console.log('Creating queue with data:', queueData);
+            const response = await queueService.createQueue(queueData);
+            console.log('Queue creation response:', response);
+            
             await fetchHospitalData();
-            setFormData(prev => ({ ...prev, queueName: '', maxPatients: 20 }));
+            setFormData({
+                doctorId: '',
+                specialization: '',
+                queueName: '',
+                maxPatients: 20
+            });
             setSelectedDoctor(null);
             setError('Queue created successfully');
         } catch (err) {
+            console.error('Queue creation error:', err);
             setError(err.response?.data?.message || 'Failed to create queue');
         }
     };

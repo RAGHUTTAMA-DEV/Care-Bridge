@@ -73,7 +73,7 @@ api.interceptors.response.use(
 );
 
 // Auth services
-export const authService = {
+const authService = {
     register: async (userData) => {
         try {
             const data = await api.post('/auth/register', userData);
@@ -117,7 +117,7 @@ export const authService = {
 };
 
 // Doctor services
-export const doctorService = {
+const doctorService = {
     getProfile: () => api.get('/doctors/profile'),
     updateProfile: (profileData) => api.put('/doctors/profile', profileData),
     updateAvailability: (day, availability) => api.put(`/doctors/profile/availability/${day}`, availability),
@@ -138,7 +138,8 @@ export const doctorService = {
     searchDoctors: async (filters) => {
         try {
             const response = await api.get('/doctors/search', { params: filters });
-            return response.data;
+            // Response interceptor already returns data directly
+            return response;
         } catch (error) {
             throw handleApiError(error);
         }
@@ -167,7 +168,7 @@ export const doctorService = {
 };
 
 // Hospital services
-export const hospitalService = {
+const hospitalService = {
     createHospital: (hospitalData) => api.post('/hospitals', hospitalData),
     getAllHospitals: () => api.get('/hospitals'),
     getHospital: (id) => api.get(`/hospitals/${id}`),
@@ -190,54 +191,259 @@ export const hospitalService = {
 };
 
 // Queue services
-export const queueService = {
-    createQueue: (queueData) => api.post('/queues', queueData),
-    addPatientToQueue: (queueId, patientData) => api.post(`/queues/${queueId}/patients`, patientData),
-    updatePatientStatus: (queueId, patientId, status) => 
-        api.put(`/queues/${queueId}/patients/${patientId}`, { status }),
-    getQueueStatus: (queueId) => api.get(`/queues/${queueId}`),
-    getDoctorQueues: (doctorId, date) => api.get(`/queues/doctor/${doctorId}`, { params: { date } }),
-    updateQueueStatus: (queueId, status) => api.put(`/queues/${queueId}/status`, { status }),
-    getHospitalQueues: (hospitalId) => api.get(`/queues/hospital/${hospitalId}`)
-};
-
-// Appointment Service
-export const appointmentService = {
-    // Book a new appointment
-    bookAppointment: async (appointmentData) => {
-        const response = await api.post('/appointments', appointmentData);
-        return response.data;
-    },
-
-    // Get appointments for the current user
-    getAppointments: async (filters = {}) => {
-        const params = new URLSearchParams();
-        Object.entries(filters).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params.append(key, value);
+const queueService = {
+    // Create a new queue for a doctor
+    createQueue: async (queueData) => {
+        try {
+            const { hospitalId, doctorId, date, maxPatients } = queueData;
+            const response = await api.post('/queues', { 
+                hospitalId, 
+                doctorId, 
+                date: new Date(date).toISOString(),
+                maxPatients: maxPatients || 20
+            });
+            return response;
+        } catch (error) {
+            if (error.response?.status === 400) {
+                throw new Error(error.response.data.message || 'Invalid queue data');
             }
-        });
-        const response = await api.get(`/appointments?${params.toString()}`);
-        return response.data;
+            throw error;
+        }
     },
-
-    // Get doctor's queue
-    getDoctorQueue: async (doctorId) => {
-        const response = await api.get(`/appointments/queue/${doctorId}`);
-        return response.data;
+    
+    // Add patient to queue
+    addPatientToQueue: async (queueId, patientId, reason, appointmentTime = new Date(), priority = 0) => {
+        try {
+            const response = await api.post(`/queues/${queueId}/patients`, {
+                patientId,
+                reason,
+                appointmentTime: new Date(appointmentTime).toISOString(),
+                priority
+            });
+            return response;
+        } catch (error) {
+            if (error.response?.status === 400) {
+                throw new Error(error.response.data.message || 'Invalid patient data');
+            }
+            if (error.response?.status === 404) {
+                throw new Error('Queue not found');
+            }
+            throw error;
+        }
     },
-
-    // Update appointment status
-    updateAppointmentStatus: async (appointmentId, statusData) => {
-        const response = await api.patch(`/appointments/${appointmentId}/status`, statusData);
-        return response.data;
+    
+    // Update patient status in queue
+    updatePatientStatus: async (queueId, patientId, status) => {
+        try {
+            const response = await api.put(`/queues/${queueId}/patients/${patientId}`, { status });
+            return response;
+        } catch (error) {
+            if (error.response?.status === 400) {
+                throw new Error(error.response.data.message || 'Invalid status update');
+            }
+            if (error.response?.status === 404) {
+                throw new Error('Queue or patient not found');
+            }
+            throw error;
+        }
     },
-
-    // Cancel appointment
-    cancelAppointment: async (appointmentId) => {
-        const response = await api.delete(`/appointments/${appointmentId}`);
-        return response.data;
+    
+    // Get queue status
+    getQueueStatus: async (queueId) => {
+        try {
+            const response = await api.get(`/queues/${queueId}`);
+            return response;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Queue not found');
+            }
+            throw error;
+        }
+    },
+    
+    // Get queues for a doctor
+    getDoctorQueues: async (doctorId, date) => {
+        try {
+            const params = date ? { date: new Date(date).toISOString() } : {};
+            const response = await api.get(`/queues/doctor/${doctorId}`, { params });
+            return response;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Doctor not found');
+            }
+            throw error;
+        }
+    },
+    
+    // Update queue status
+    updateQueueStatus: async (queueId, status) => {
+        try {
+            const response = await api.put(`/queues/${queueId}/status`, { status });
+            return response;
+        } catch (error) {
+            if (error.response?.status === 400) {
+                throw new Error(error.response.data.message || 'Invalid status update');
+            }
+            if (error.response?.status === 404) {
+                throw new Error('Queue not found');
+            }
+            throw error;
+        }
+    },
+    
+    // Get all queues for a hospital
+    getHospitalQueues: async (hospitalId) => {
+        try {
+            const response = await api.get(`/queues/hospital/${hospitalId}`);
+            return response;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Hospital not found');
+            }
+            throw error;
+        }
+    },
+    
+    // Get queues for a patient
+    getPatientQueues: async (patientId) => {
+        try {
+            const response = await api.get(`/queues/patient/${patientId}`);
+            return response;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Patient not found');
+            }
+            throw error;
+        }
+    },
+    
+    // Remove patient from queue
+    leaveQueue: async (queueId, patientId) => {
+        try {
+            const response = await api.delete(`/queues/${queueId}/patients/${patientId}`);
+            return response;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Queue or patient not found');
+            }
+            throw error;
+        }
     }
 };
 
-export default api; 
+// Appointment Service
+const appointmentService = {
+    // Get appointments with filters
+    getAppointments: async (filters = {}) => {
+        try {
+            const queryParams = new URLSearchParams();
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== null) {
+                    queryParams.append(key, value);
+                }
+            });
+            const response = await api.get(`/appointments?${queryParams.toString()}`);
+            return response;
+        } catch (error) {
+            console.error('Failed to fetch appointments:', error);
+            throw error;
+        }
+    },
+
+    // Request a new appointment
+    requestAppointment: async (appointmentData) => {
+        try {
+            const response = await api.post('/appointments', {
+                ...appointmentData,
+                status: 'pending',
+                approvalStatus: 'pending'
+            });
+            return response;
+        } catch (error) {
+            console.error('Failed to request appointment:', error);
+            throw error;
+        }
+    },
+
+    // Update appointment approval status (doctor only)
+    updateAppointmentApproval: async (appointmentId, { approvalStatus, approvalMessage }) => {
+        try {
+            const response = await api.patch(`/appointments/${appointmentId}/approval`, {
+                approvalStatus,
+                approvalMessage
+            });
+            return response;
+        } catch (error) {
+            console.error('Failed to update appointment approval:', error);
+            throw error;
+        }
+    },
+
+    // Update appointment status
+    updateAppointmentStatus: async (appointmentId, status) => {
+        try {
+            const response = await api.patch(`/appointments/${appointmentId}/status`, { status });
+            return response;
+        } catch (error) {
+            console.error('Failed to update appointment status:', error);
+            throw error;
+        }
+    },
+
+    // Add message to appointment
+    addAppointmentMessage: async (appointmentId, message) => {
+        try {
+            const response = await api.post(`/appointments/${appointmentId}/messages`, { message });
+            return response;
+        } catch (error) {
+            console.error('Failed to add appointment message:', error);
+            throw error;
+        }
+    },
+
+    // Mark messages as read
+    markMessagesAsRead: async (appointmentId) => {
+        try {
+            const response = await api.patch(`/appointments/${appointmentId}/messages/read`);
+            return response;
+        } catch (error) {
+            console.error('Failed to mark messages as read:', error);
+            throw error;
+        }
+    },
+
+    // Cancel appointment
+    cancelAppointment: async (appointmentId, reason) => {
+        try {
+            const response = await api.delete(`/appointments/${appointmentId}`, {
+                data: { reason }
+            });
+            return response;
+        } catch (error) {
+            console.error('Failed to cancel appointment:', error);
+            throw error;
+        }
+    },
+
+    // Get appointment details
+    getAppointmentDetails: async (appointmentId) => {
+        try {
+            const response = await api.get(`/appointments/${appointmentId}`);
+            return response;
+        } catch (error) {
+            console.error('Failed to get appointment details:', error);
+            throw error;
+        }
+    }
+};
+
+// Export all services
+export {
+    authService,
+    doctorService,
+    hospitalService,
+    queueService,
+    appointmentService
+};
+
+export default api;

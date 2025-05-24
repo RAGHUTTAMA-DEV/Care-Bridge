@@ -11,6 +11,12 @@ import DoctorProfile from './components/doctor/DoctorProfile';
 import HospitalDetails from './components/hospital/HospitalDetails';
 import NotFound from './components/NotFound';
 import NearbyDoctors from './components/doctor/NearbyDoctors';
+import AppointmentList from './components/appointment/AppointmentList';
+import BookAppointment from './components/appointment/BookAppointment';
+import DoctorQueue from './components/appointment/DoctorQueue';
+import StaffQueueManagement from './components/staff/StaffQueueManagement';
+import JoinQueue from './components/appointment/JoinQueue';
+import DoctorDashboard from './pages/DoctorDashboard';
 
 // Protected Route component
 const ProtectedRoute = ({ children, roles = [] }) => {
@@ -55,6 +61,60 @@ const App = () => {
                         element={
                             <ProtectedRoute>
                                 <Dashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Doctor Dashboard */}
+                    <Route
+                        path="/doctor/dashboard"
+                        element={
+                            <ProtectedRoute roles={['doctor']}>
+                                <DoctorDashboard />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Appointment Routes */}
+                    <Route
+                        path="/appointments"
+                        element={
+                            <ProtectedRoute>
+                                <AppointmentList />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/appointments/book/:doctorId"
+                        element={
+                            <ProtectedRoute roles={['patient']}>
+                                <BookAppointment />
+                            </ProtectedRoute>
+                        }
+                    />
+
+                    {/* Queue Management Routes */}
+                    <Route
+                        path="/doctor/queue"
+                        element={
+                            <ProtectedRoute roles={['doctor']}>
+                                <DoctorQueue />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/staff/queue-management"
+                        element={
+                            <ProtectedRoute roles={['staff']}>
+                                <StaffQueueManagement />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/join-queue"
+                        element={
+                            <ProtectedRoute roles={['patient']}>
+                                <JoinQueue />
                             </ProtectedRoute>
                         }
                     />

@@ -72,6 +72,7 @@ const doctors = [
             }],
             experience: 12,
             consultationFee: 1500,
+            address: "123 Doctor Lane, Bangalore",
             availability: [
                 {
                     day: "Monday",
@@ -114,6 +115,7 @@ const doctors = [
             }],
             experience: 8,
             consultationFee: 1200,
+            address: "456 Medical Street, Bangalore",
             availability: [
                 {
                     day: "Tuesday",

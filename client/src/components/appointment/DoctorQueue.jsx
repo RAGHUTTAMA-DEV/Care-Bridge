@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { appointmentService } from '../../services/api';
+import { queueService } from '../../services/api';
 import { format } from 'date-fns';
 
 const DoctorQueue = () => {
@@ -22,11 +22,14 @@ const DoctorQueue = () => {
     const fetchQueue = async () => {
         try {
             setLoading(true);
-            const response = await appointmentService.getDoctorQueue(user._id);
-            setQueue(response.data);
+            const response = await queueService.getDoctorQueues(user._id);
+            // Handle the response structure correctly
+            const queueData = response?.data || [];
+            setQueue(Array.isArray(queueData) ? queueData : []);
             
             // Set current appointment if there's one in progress
-            const inProgress = response.data.find(a => a.status === 'in_progress');
+            const inProgress = Array.isArray(queueData) ? 
+                queueData.find(a => a?.status === 'in_progress') : null;
             if (inProgress) {
                 setCurrentAppointment(inProgress);
             }
@@ -37,11 +40,9 @@ const DoctorQueue = () => {
         }
     };
 
-    const handleStartConsultation = async (appointmentId) => {
+    const handleStartConsultation = async (patientId) => {
         try {
-            const response = await appointmentService.updateAppointmentStatus(appointmentId, {
-                status: 'in_progress'
-            });
+            const response = await queueService.updatePatientStatus(currentQueue._id, patientId, 'in_progress');
             if (response.success) {
                 fetchQueue();
             }
@@ -54,11 +55,7 @@ const DoctorQueue = () => {
         if (!currentAppointment) return;
 
         try {
-            const response = await appointmentService.updateAppointmentStatus(currentAppointment._id, {
-                status: 'completed',
-                prescription,
-                followUpDate: followUpDate || undefined
-            });
+            const response = await queueService.updatePatientStatus(currentQueue._id, currentAppointment._id, 'completed');
             if (response.success) {
                 setCurrentAppointment(null);
                 setPrescription('');
@@ -70,11 +67,9 @@ const DoctorQueue = () => {
         }
     };
 
-    const handleNoShow = async (appointmentId) => {
+    const handleNoShow = async (patientId) => {
         try {
-            const response = await appointmentService.updateAppointmentStatus(appointmentId, {
-                status: 'no_show'
-            });
+            const response = await queueService.updatePatientStatus(currentQueue._id, patientId, 'no_show');
             if (response.success) {
                 fetchQueue();
             }
@@ -100,20 +95,20 @@ const DoctorQueue = () => {
                     <div className="bg-white shadow rounded-lg p-6">
                         <h2 className="text-lg font-medium text-gray-900 mb-4">Current Consultation</h2>
                         
-                        {currentAppointment ? (
+                        {currentAppointment?.patient ? (
                             <div>
                                 <div className="flex items-center mb-4">
                                     <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                                         <span className="text-xl font-medium text-blue-600">
-                                            {currentAppointment.patient.firstName[0]}
+                                            {currentAppointment.patient?.firstName?.[0] || '?'}
                                         </span>
                                     </div>
                                     <div className="ml-4">
                                         <h3 className="text-lg font-medium text-gray-900">
-                                            {currentAppointment.patient.firstName} {currentAppointment.patient.lastName}
+                                            {currentAppointment.patient?.firstName || 'Unknown'} {currentAppointment.patient?.lastName || ''}
                                         </h3>
                                         <p className="text-sm text-gray-500">
-                                            Queue #{currentAppointment.queueNumber}
+                                            Queue #{currentAppointment.queueNumber || 'N/A'}
                                         </p>
                                     </div>
                                 </div>
@@ -226,15 +221,15 @@ const DoctorQueue = () => {
                                             <div className="flex items-center">
                                                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                                     <span className="text-lg font-medium text-blue-600">
-                                                        {appointment.patient.firstName[0]}
+                                                        {appointment.patient?.firstName?.[0] || '?'}
                                                     </span>
                                                 </div>
                                                 <div className="ml-4">
                                                     <h3 className="text-sm font-medium text-gray-900">
-                                                        {appointment.patient.firstName} {appointment.patient.lastName}
+                                                        {appointment.patient?.firstName || 'Unknown'} {appointment.patient?.lastName || ''}
                                                     </h3>
                                                     <p className="text-sm text-gray-500">
-                                                        Queue #{appointment.queueNumber} • {appointment.startTime}
+                                                        Queue #{appointment.queueNumber || 'N/A'} • {appointment.startTime || 'N/A'}
                                                     </p>
                                                 </div>
                                             </div>

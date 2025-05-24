@@ -14,7 +14,7 @@ if (!process.env.JWT_SECRET) {
 
 const express = require('express');
 const http = require('http');
-const socketIo = require('socket.io');
+const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const cors = require('cors');
 
@@ -23,9 +23,17 @@ const authRoutes = require('./src/routes/authRoutes');
 const doctorRoutes = require('./src/routes/doctorRoutes');
 const hospitalRoutes = require('./src/routes/hospitalRoutes');
 const queueRoutes = require('./src/routes/queueRoutes');
+const appointmentRoutes = require('./src/routes/appointmentRoutes');
 
 const app = express();
 const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: process.env.CLIENT_URL || "http://localhost:5173",
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
 
 // Configure CORS to allow all origins during development
 app.use((req, res, next) => {
@@ -66,29 +74,48 @@ mongoose.connect(process.env.MONGODB_URI, {
     process.exit(1);
 });
 
-// Socket.io setup with permissive CORS
-const io = socketIo(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["*"],
-        credentials: true
-    }
-});
-
+// Socket.IO connection handling
 io.on('connection', (socket) => {
-    console.log('New client connected');
+    console.log('Client connected:', socket.id);
+
+    // Join hospital room for queue updates
+    socket.on('join-hospital', (hospitalId) => {
+        socket.join(`hospital-${hospitalId}`);
+        console.log(`Socket ${socket.id} joined hospital-${hospitalId}`);
+    });
+
+    // Join patient room for personal updates
+    socket.on('join-patient', (patientId) => {
+        socket.join(`patient-${patientId}`);
+        console.log(`Socket ${socket.id} joined patient-${patientId}`);
+    });
 
     socket.on('disconnect', () => {
-        console.log('Client disconnected');
+        console.log('Client disconnected:', socket.id);
     });
 });
+
+// Make io accessible to routes
+app.set('io', io);
+
+// Queue event emitter
+const emitQueueUpdate = (hospitalId, queueData) => {
+    io.to(`hospital-${hospitalId}`).emit('queue-update', queueData);
+};
+
+const emitPatientUpdate = (patientId, queueData) => {
+    io.to(`patient-${patientId}`).emit('patient-queue-update', queueData);
+};
+
+// Export the emit functions
+module.exports = { server, emitQueueUpdate, emitPatientUpdate };
 
 // Mount Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/doctors', doctorRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/queues', queueRoutes);
+app.use('/api/appointments', appointmentRoutes);
 
 // Basic route for testing
 app.get('/', (req, res) => {

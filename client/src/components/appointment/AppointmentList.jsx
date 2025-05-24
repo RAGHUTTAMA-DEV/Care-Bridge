@@ -21,9 +21,9 @@ const AppointmentList = () => {
                 upcoming: filter === 'upcoming' ? 'true' : undefined,
                 status: filter === 'past' ? 'completed' : undefined
             });
-            setAppointments(response.data);
+            setAppointments(response.data || []);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to fetch appointments');
+            setError(err.message || 'Failed to fetch appointments');
         } finally {
             setLoading(false);
         }

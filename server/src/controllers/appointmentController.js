@@ -87,11 +87,23 @@ const bookAppointment = async (req, res) => {
 // @access  Private
 const getAppointments = async (req, res) => {
     try {
-        const { status, date, upcoming } = req.query;
+        const { status, date, upcoming, patientId, doctorId, approvalStatus } = req.query;
         const query = {};
 
-        // Set query based on user role
-        if (req.user.role === 'doctor') {
+        console.log('GetAppointments request:', {
+            user: {
+                id: req.user._id,
+                role: req.user.role
+            },
+            query: req.query
+        });
+
+        // Set query based on user role and provided IDs
+        if (patientId) {
+            query.patient = patientId;
+        } else if (doctorId) {
+            query.doctor = doctorId;
+        } else if (req.user.role === 'doctor') {
             query.doctor = req.user._id;
         } else {
             query.patient = req.user._id;
@@ -100,6 +112,9 @@ const getAppointments = async (req, res) => {
         // Add filters
         if (status) {
             query.status = status;
+        }
+        if (approvalStatus) {
+            query.approvalStatus = approvalStatus;
         }
         if (date) {
             const startDate = new Date(date);
@@ -110,24 +125,27 @@ const getAppointments = async (req, res) => {
         }
         if (upcoming === 'true') {
             query.date = { $gte: new Date() };
+            query.status = { $nin: ['cancelled', 'completed'] };
         }
+
+        console.log('Constructed query:', query);
 
         const appointments = await Appointment.find(query)
             .populate('patient', 'firstName lastName email phone')
-            .populate('doctor', 'firstName lastName email phone')
-            .populate('doctorProfile', 'specialization consultationFee')
-            .sort({ date: 1, startTime: 1 });
+            .populate('doctor', 'firstName lastName specialization')
+            .populate('hospital', 'name address')
+            .populate('approvedBy', 'firstName lastName')
+            .populate('messages.sender', 'firstName lastName role')
+            .sort({ date: 1 });
 
-        res.json({
-            success: true,
-            data: appointments
-        });
+        console.log(`Found ${appointments.length} appointments`);
+
+        res.json(appointments);
     } catch (error) {
         console.error('Error getting appointments:', error);
         res.status(500).json({
-            success: false,
             message: 'Failed to get appointments',
-            error: error.message
+            error: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

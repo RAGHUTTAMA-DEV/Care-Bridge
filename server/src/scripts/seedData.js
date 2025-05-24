@@ -226,7 +226,9 @@ const seedDatabase = async () => {
         console.log('Created doctors');
 
         // Create patients
-        const createdPatients = await User.insertMany(patients);
+        const createdPatients = await Promise.all(
+            patients.map(patientData => User.create(patientData))
+        );
         console.log('Created patients');
 
         console.log('Database seeded successfully!');

@@ -201,4 +201,43 @@ export const queueService = {
     getHospitalQueues: (hospitalId) => api.get(`/queues/hospital/${hospitalId}`)
 };
 
+// Appointment Service
+export const appointmentService = {
+    // Book a new appointment
+    bookAppointment: async (appointmentData) => {
+        const response = await api.post('/appointments', appointmentData);
+        return response.data;
+    },
+
+    // Get appointments for the current user
+    getAppointments: async (filters = {}) => {
+        const params = new URLSearchParams();
+        Object.entries(filters).forEach(([key, value]) => {
+            if (value !== undefined) {
+                params.append(key, value);
+            }
+        });
+        const response = await api.get(`/appointments?${params.toString()}`);
+        return response.data;
+    },
+
+    // Get doctor's queue
+    getDoctorQueue: async (doctorId) => {
+        const response = await api.get(`/appointments/queue/${doctorId}`);
+        return response.data;
+    },
+
+    // Update appointment status
+    updateAppointmentStatus: async (appointmentId, statusData) => {
+        const response = await api.patch(`/appointments/${appointmentId}/status`, statusData);
+        return response.data;
+    },
+
+    // Cancel appointment
+    cancelAppointment: async (appointmentId) => {
+        const response = await api.delete(`/appointments/${appointmentId}`);
+        return response.data;
+    }
+};
+
 export default api; 

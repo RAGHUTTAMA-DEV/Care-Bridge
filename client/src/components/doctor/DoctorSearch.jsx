@@ -30,13 +30,17 @@ const DoctorSearch = () => {
             });
             
             // Debug logging
-            console.log('Search response:', {
-                success: response?.success,
-                count: response?.count,
-                data: response?.data
+            console.log('Raw API response:', response);
+
+            // Handle both array response and object response formats
+            const doctors = Array.isArray(response) ? response : response?.data?.data || [];
+            
+            console.log('Found doctors:', {
+                count: doctors.length,
+                doctors: doctors
             });
 
-            setDoctors(response?.data || []);
+            setDoctors(doctors);
         } catch (err) {
             console.error('Search error:', {
                 message: err.message,

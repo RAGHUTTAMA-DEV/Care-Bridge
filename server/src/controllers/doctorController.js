@@ -161,11 +161,8 @@ const searchDoctors = async (req, res) => {
             }
         }));
 
-        res.json({
-            success: true,
-            count: formattedDoctors.length,
-            data: formattedDoctors
-        });
+        // Return formatted response
+        return res.json(formattedDoctors);
 
     } catch (error) {
         console.error('Error searching doctors:', {

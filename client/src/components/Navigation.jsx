@@ -82,7 +82,7 @@ const Navigation = () => {
                         <div className="ml-3 relative">
                             <div className="flex items-center space-x-4">
                                 <span className="text-sm text-gray-700">
-                                    {user.firstName} {user.lastName}
+                                    {user.firstName || ''} {user.lastName || ''}
                                 </span>
                                 <button
                                     onClick={handleLogout}
@@ -153,13 +153,13 @@ const Navigation = () => {
                         <div className="flex-shrink-0">
                             <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                 <span className="text-xl font-medium text-blue-600">
-                                    {user.firstName[0]}{user.lastName[0]}
+                                    {(user.firstName?.[0] || '') + (user.lastName?.[0] || '')}
                                 </span>
                             </div>
                         </div>
                         <div className="ml-3">
                             <div className="text-base font-medium text-gray-800">
-                                {user.firstName} {user.lastName}
+                                {user.firstName || ''} {user.lastName || ''}
                             </div>
                             <div className="text-sm font-medium text-gray-500">{user.role}</div>
                         </div>

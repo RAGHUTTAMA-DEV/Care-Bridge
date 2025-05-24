@@ -1,7 +1,20 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
-// Check if required environment variables are set
+const express = require('express');
+const cors = require('cors');
+const axios = require('axios');
+const http = require('http');
+const socketIo = require('socket.io');
+const mongoose = require('mongoose');
+
+// Import routes
+const authRoutes = require('./src/routes/authRoutes');
+const doctorRoutes = require('./src/routes/doctorRoutes');
+const hospitalRoutes = require('./src/routes/hospitalRoutes');
+const queueRoutes = require('./src/routes/queueRoutes');
+
+// Check required environment variables
 if (!process.env.MONGODB_URI) {
     console.error('MONGODB_URI is not defined in environment variables');
     process.exit(1);
@@ -12,37 +25,74 @@ if (!process.env.JWT_SECRET) {
     process.exit(1);
 }
 
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const mongoose = require('mongoose');
-const cors = require('cors');
+// API configuration
+const API_KEY = process.env.OPENAI_API_KEY;
+const API_BASE_URL = 'https://api.aimlapi.com/v1';
 
-// Import routes
-const authRoutes = require('./src/routes/authRoutes');
-const doctorRoutes = require('./src/routes/doctorRoutes');
-const hospitalRoutes = require('./src/routes/hospitalRoutes');
-const queueRoutes = require('./src/routes/queueRoutes');
-
+// Initialize Express app
 const app = express();
 const server = http.createServer(app);
 
-// Configure CORS to allow all origins during development
-app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    
-    // Handle preflight requests
-    if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+// Helper functions
+const callAPI = async (endpoint, data, headers = {}) => {
+    try {
+        const response = await axios.post(`${API_BASE_URL}${endpoint}`, data, {
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json',
+                'Accept': '*/*',
+                ...headers
+            }
+        });
+        return response.data;
+    } catch (error) {
+        console.error(`API Error (${endpoint}):`, error.response?.data || error.message);
+        throw error;
     }
-    next();
+};
+
+const mockOcrResponse = (text) => ({
+    pages: [{
+        text: text || 'Sample medical report text. Patient shows normal vital signs...',
+        page_number: 1
+    }]
 });
 
-// Middleware to parse JSON requests
-app.use(express.json());
+// Socket.io configuration
+const configureSocketIO = (server) => {
+    const io = socketIo(server, {
+        cors: {
+            origin: "*",
+            methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            allowedHeaders: ["*"],
+            credentials: true
+        }
+    });
+
+    io.on('connection', (socket) => {
+        console.log('New client connected');
+
+        socket.on('disconnect', () => {
+            console.log('Client disconnected');
+        });
+
+        // Add more socket event handlers here
+    });
+
+    return io;
+};
+
+
+// Helper functions
+
+// Configure middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization"],
+    credentials: true
+}));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -50,39 +100,124 @@ app.use((req, res, next) => {
     next();
 });
 
-// Database Connection with error handling
-mongoose.connect(process.env.MONGODB_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
-.then(() => {
-    console.log('MongoDB connected successfully');
-    // Start the server only after successful database connection
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-})
-.catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-});
+// API routes
+const apiRouter = express.Router();
 
-// Socket.io setup with permissive CORS
-const io = socketIo(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["*"],
-        credentials: true
+// Chat endpoint
+apiRouter.post('/chat', async (req, res) => {
+    try {
+        const { message } = req.body;
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        console.log('Sending chat message:', message);
+
+        const apiResponse = await callAPI('/chat/completions', {
+            model: "gpt-4",
+            messages: [
+                { role: "user", content: message }
+            ]
+        });
+
+        const responseText = apiResponse.choices?.[0]?.message?.content;
+        if (!responseText) {
+            throw new Error('Invalid response from chat API');
+        }
+
+        console.log('Chat response received');
+        res.json({ response: responseText });
+
+    } catch (error) {
+        console.error('Chat error:', error.response?.data || error.message);
+        res.status(500).json({
+            error: 'Failed to process chat message',
+            details: error.response?.data || error.message
+        });
     }
 });
 
-io.on('connection', (socket) => {
-    console.log('New client connected');
+// Image analysis endpoint
+apiRouter.post('/analyze-image', async (req, res) => {
+    try {
+        const { image } = req.body;
+        if (!image) {
+            return res.status(400).json({ error: 'Image data is required' });
+        }
 
-    socket.on('disconnect', () => {
-        console.log('Client disconnected');
-    });
+        console.log('Processing image...');
+        const ocrResponse = mockOcrResponse();
+        const extractedText = ocrResponse.pages[0].text;
+
+        const analysisResponse = await callAPI('/chat/completions', {
+            model: "gpt-4",
+            messages: [
+                {
+                    role: "system",
+                    content: "You are a medical expert. Analyze the given medical report text and provide a clear summary."
+                },
+                {
+                    role: "user",
+                    content: `Analyze this medical report text and provide a clear summary:\n\n${extractedText}`
+                }
+            ]
+        });
+
+        const analysis = analysisResponse.choices?.[0]?.message?.content;
+        if (!analysis) {
+            throw new Error('Failed to analyze the medical text');
+        }
+
+        res.json({
+            text: extractedText,
+            analysis: analysis
+        });
+
+    } catch (error) {
+        console.error('Image analysis error:', error.response?.data || error.message);
+        res.status(500).json({
+            error: 'Failed to analyze image',
+            details: error.response?.data || error.message
+        });
+    }
 });
+
+// Mount API routes
+app.use('/api', apiRouter);
+
+// Mount core routes
+
+// Initialize Socket.IO
+const io = configureSocketIO(server);
+
+// Database connection and server startup
+const startServer = async () => {
+    try {
+        // Connect to MongoDB
+        await mongoose.connect(process.env.MONGODB_URI, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });
+        console.log('MongoDB connected successfully');
+
+        // Start the server
+        const PORT = process.env.PORT || 5000;
+        server.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+            if (API_KEY) {
+                console.log(`API Key configured: ${API_KEY.slice(0,4)}...${API_KEY.slice(-4)}`);
+            } else {
+                console.warn('API Key not configured');
+            }
+        });
+    } catch (err) {
+        console.error('Failed to start server:', err);
+        process.exit(1);
+    }
+};
+
+// Start the server
+startServer();
 
 // Mount Routes
 app.use('/api/auth', authRoutes);

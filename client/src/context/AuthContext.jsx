@@ -16,28 +16,53 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // Check for existing token on mount
+    // Initialize authentication state
     useEffect(() => {
         const initAuth = () => {
-            const currentUser = authService.getCurrentUser();
-            if (currentUser) {
-                setUser(currentUser);
+            try {
+                const currentUser = authService.getCurrentUser();
+                const formattedUser = formatUserData(currentUser);
+                if (formattedUser) {
+                    setUser(formattedUser);
+                }
+            } catch (err) {
+                console.error('Auth initialization error:', err);
+                // Clear invalid data
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         initAuth();
     }, []);
 
+    const formatUserData = (data) => {
+        if (!data) return null;
+        return {
+            id: data.id,
+            email: data.email,
+            role: data.role || 'patient',
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            phone: data.phone || '',
+            hospitalId: data.hospitalId,
+        };
+    };
+
     const register = async (userData) => {
         try {
             setError(null);
-            const response = await authService.register(userData);
-            const data = response.data;
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data));
-            setUser(data);
-            return data;
+            const data = await authService.register(userData);
+            const formattedUser = formatUserData(data);
+            if (data.token && formattedUser) {
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('user', JSON.stringify(formattedUser));
+                setUser(formattedUser);
+                return formattedUser;
+            }
+            throw new Error('Invalid response from server');
         } catch (err) {
             setError(err.response?.data?.message || 'Registration failed');
             throw err;
@@ -48,14 +73,14 @@ export const AuthProvider = ({ children }) => {
         try {
             setError(null);
             const data = await authService.login(credentials);
-            if (data && data.token) {
+            const formattedUser = formatUserData(data);
+            if (data.token && formattedUser) {
                 localStorage.setItem('token', data.token);
-                localStorage.setItem('user', JSON.stringify(data));
-                setUser(data);
-                return data;
-            } else {
-                throw new Error('Invalid response from server');
+                localStorage.setItem('user', JSON.stringify(formattedUser));
+                setUser(formattedUser);
+                return formattedUser;
             }
+            throw new Error('Invalid response from server');
         } catch (err) {
             const errorMessage = err.message || 'Login failed';
             setError(errorMessage);

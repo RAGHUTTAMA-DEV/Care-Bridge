@@ -1,4 +1,5 @@
 import React from 'react';
+import Home from './components/home';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navigation from './components/Navigation';
@@ -54,70 +55,21 @@ const App = () => {
                         path="/dashboard"
                         element={
                             <ProtectedRoute>
-                                <Dashboard />
+                                <Home />
                             </ProtectedRoute>
                         }
                     />
+                    {/* Healthcare Routes */}
+                    <Route path="/doctors/search" element={<ProtectedRoute><DoctorSearch /></ProtectedRoute>} />
+                    <Route path="/hospitals/search" element={<ProtectedRoute><HospitalSearch /></ProtectedRoute>} />
+                    <Route path="/doctors" element={<ProtectedRoute><NearbyDoctors /></ProtectedRoute>} />
+                    <Route path="/hospital/:id" element={<ProtectedRoute><HospitalDetails /></ProtectedRoute>} />
 
-                    {/* Doctor Search */}
-                    <Route
-                        path="/doctors/search"
-                        element={
-                            <ProtectedRoute>
-                                <DoctorSearch />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Professional Routes */}
+                    <Route path="/doctor/profile" element={<ProtectedRoute roles={['doctor']}><DoctorProfile /></ProtectedRoute>} />
 
-                    {/* Hospital Search */}
-                    <Route
-                        path="/hospitals/search"
-                        element={
-                            <ProtectedRoute>
-                                <HospitalSearch />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Doctor Routes */}
-                    <Route
-                        path="/doctor/profile"
-                        element={
-                            <ProtectedRoute roles={['doctor']}>
-                                <DoctorProfile />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Hospital Routes */}
-                    <Route
-                        path="/hospital/:id"
-                        element={
-                            <ProtectedRoute>
-                                <HospitalDetails />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Nearby Doctors */}
-                    <Route
-                        path="/doctors"
-                        element={
-                            <ProtectedRoute>
-                                <NearbyDoctors />
-                            </ProtectedRoute>
-                        }
-                    />
-
-                    {/* Redirect root to dashboard if authenticated, otherwise to login */}
-                    <Route
-                        path="/"
-                        element={
-                            <ProtectedRoute>
-                                <Navigate to="/dashboard" replace />
-                            </ProtectedRoute>
-                        }
-                    />
+                    {/* Root Route */}
+                    <Route path="/" element={<ProtectedRoute><Navigate to="/dashboard" replace /></ProtectedRoute>} />
 
                     {/* 404 Route */}
                     <Route path="*" element={<NotFound />} />
@@ -126,5 +78,6 @@ const App = () => {
         </AuthProvider>
     );
 };
+
 
 export default App; 

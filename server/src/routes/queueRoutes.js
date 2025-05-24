@@ -185,8 +185,9 @@ router.get('/doctor/:doctorId', authenticateJWT, async (req, res) => {
         }
 
         const queues = await Queue.find(query)
-            .populate('hospital', 'name')
-            .populate('patients.patient', 'firstName lastName');
+            .populate('doctor', 'firstName lastName email specialization')
+            .populate('hospital', 'name address')
+            .populate('patients.patient', 'firstName lastName email');
 
         res.json(queues);
     } catch (error) {

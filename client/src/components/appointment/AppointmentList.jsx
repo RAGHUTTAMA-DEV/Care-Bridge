@@ -21,9 +21,26 @@ const AppointmentList = () => {
                 upcoming: filter === 'upcoming' ? 'true' : undefined,
                 status: filter === 'past' ? 'completed' : undefined
             });
-            setAppointments(response.data || []);
+            
+            // Debug log to see the actual response structure
+            console.log('Appointments response:', response);
+            
+            // The response is already the data array, no need to access .data
+            if (Array.isArray(response)) {
+                // Sort appointments by appointmentTime
+                const sortedAppointments = [...response].sort((a, b) => 
+                    new Date(a.appointmentTime) - new Date(b.appointmentTime)
+                );
+                setAppointments(sortedAppointments);
+            } else {
+                console.error('Invalid appointments data:', response);
+                setAppointments([]);
+            }
+            setError(''); // Clear any previous errors
         } catch (err) {
+            console.error('Fetch appointments error:', err);
             setError(err.message || 'Failed to fetch appointments');
+            setAppointments([]);
         } finally {
             setLoading(false);
         }
@@ -67,6 +84,36 @@ const AppointmentList = () => {
             no_show: 'bg-gray-100 text-gray-800'
         };
         return colors[status] || 'bg-gray-100 text-gray-800';
+    };
+
+    // Helper function to format appointment date and time
+    const formatAppointmentDateTime = (appointment) => {
+        try {
+            // Try different possible field names
+            const dateTime = appointment.appointmentTime || appointment.date || appointment.dateTime;
+            const time = appointment.startTime || appointment.time;
+            
+            if (dateTime) {
+                const date = new Date(dateTime);
+                if (time) {
+                    return `${format(date, 'MMMM d, yyyy')} at ${time}`;
+                } else {
+                    return format(date, 'MMMM d, yyyy \'at\' h:mm a');
+                }
+            }
+            return 'Date not available';
+        } catch (error) {
+            console.error('Date formatting error:', error);
+            return 'Invalid date';
+        }
+    };
+
+    // Helper function to get patient/doctor name safely
+    const getPersonName = (person) => {
+        if (!person) return 'Unknown';
+        const firstName = person.firstName || person.name || '';
+        const lastName = person.lastName || '';
+        return `${firstName} ${lastName}`.trim() || 'Unknown';
     };
 
     if (loading) {
@@ -115,11 +162,17 @@ const AppointmentList = () => {
                 </div>
             )}
 
+            {/* Debug info - remove this in production */}
+            <div className="mb-4 p-2 bg-gray-100 text-xs">
+                <p>Debug: Found {appointments.length} appointments</p>
+                <p>Filter: {filter}</p>
+            </div>
+
             {/* Appointments List */}
             {appointments.length === 0 ? (
                 <div className="text-center py-12">
                     <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 002 2z" />
                     </svg>
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No appointments found</h3>
                     <p className="mt-1 text-sm text-gray-500">
@@ -142,25 +195,25 @@ const AppointmentList = () => {
                                                 <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
                                                     <span className="text-xl font-medium text-blue-600">
                                                         {user.role === 'doctor' 
-                                                            ? appointment.patient.firstName[0]
-                                                            : appointment.doctor.firstName[0]}
+                                                            ? (appointment.patient?.firstName?.[0] || 'P')
+                                                            : (appointment.doctor?.firstName?.[0] || 'D')}
                                                     </span>
                                                 </div>
                                             </div>
                                             <div className="ml-4">
                                                 <h3 className="text-lg font-medium text-gray-900">
                                                     {user.role === 'doctor'
-                                                        ? `Patient: ${appointment.patient.firstName} ${appointment.patient.lastName}`
-                                                        : `Dr. ${appointment.doctor.firstName} ${appointment.doctor.lastName}`}
+                                                        ? `Patient: ${getPersonName(appointment.patient)}`
+                                                        : `Dr. ${getPersonName(appointment.doctor)}`}
                                                 </h3>
                                                 <p className="text-sm text-gray-500">
-                                                    {format(new Date(appointment.date), 'MMMM d, yyyy')} at {appointment.startTime}
+                                                    {formatAppointmentDateTime(appointment)}
                                                 </p>
                                             </div>
                                         </div>
                                         <div className="flex items-center space-x-4">
                                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(appointment.status)}`}>
-                                                {appointment.status.replace('_', ' ')}
+                                                {appointment.status?.replace('_', ' ') || 'Unknown'}
                                             </span>
                                             {appointment.queueNumber && (
                                                 <span className="text-sm text-gray-500">
@@ -225,4 +278,4 @@ const AppointmentList = () => {
     );
 };
 
-export default AppointmentList; 
+export default AppointmentList;

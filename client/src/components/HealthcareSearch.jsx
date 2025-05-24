@@ -8,7 +8,7 @@ import SearchFilters from './SearchFilters';
 const HealthcareSearch = () => {
     const {
         userLocation,
-        searchType,
+        searchType, 
         setSearchType,
         searchFilters,
         updateSearchFilters,

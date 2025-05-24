@@ -7,28 +7,46 @@ const DoctorDashboard = () => {
     const { user } = useAuth();
     const [appointments, setAppointments] = useState([]);
     const [queue, setQueue] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('appointments');
 
     useEffect(() => {
-        fetchAppointments();
-        fetchQueue();
+        const fetchData = async () => {
+            await Promise.all([
+                fetchAppointments(),
+                fetchQueue()
+            ]);
+        };
+        fetchData();
+        
         // Refresh data every minute
-        const interval = setInterval(() => {
-            fetchAppointments();
-            fetchQueue();
-        }, 60000);
+        const interval = setInterval(fetchData, 60000);
         return () => clearInterval(interval);
     }, []);
 
     const fetchAppointments = async () => {
         try {
-            const response = await appointmentService.getAppointments({ doctorId: user._id });
-            setAppointments(Array.isArray(response?.data) ? response.data : []);
+            setLoading(true);
+            const response = await appointmentService.getAppointments({ upcoming: true });
+            console.log('Fetched appointments:', response); // Debug log
+            if (Array.isArray(response)) {
+                // Sort appointments by appointmentTime
+                const sortedAppointments = [...response].sort((a, b) => 
+                    new Date(a.appointmentTime) - new Date(b.appointmentTime)
+                );
+                setAppointments(sortedAppointments);
+            } else {
+                console.error('Invalid appointments data:', response);
+                setAppointments([]);
+            }
+            setError('');
         } catch (err) {
             console.error('Failed to fetch appointments:', err);
             setError(err.message || 'Failed to fetch appointments');
+            setAppointments([]);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -39,8 +57,6 @@ const DoctorDashboard = () => {
         } catch (err) {
             console.error('Failed to fetch queue:', err);
             setError(err.message || 'Failed to fetch queue');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -93,14 +109,6 @@ const DoctorDashboard = () => {
         }
     };
 
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            </div>
-        );
-    }
-
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="bg-white shadow rounded-lg">
@@ -152,87 +160,96 @@ const DoctorDashboard = () => {
                 {/* Appointments Tab */}
                 {activeTab === 'appointments' && (
                     <div className="p-6">
-                        <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Patient
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Date & Time
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Status
-                                        </th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Actions
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {appointments.length === 0 ? (
+                        {loading ? (
+                            <div className="flex justify-center py-8">
+                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                            </div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
                                         <tr>
-                                            <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
-                                                No appointments found
-                                            </td>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Patient
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Date & Time
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Status
+                                            </th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                Actions
+                                            </th>
                                         </tr>
-                                    ) : (
-                                        appointments.map((appointment) => (
-                                            <tr key={appointment._id}>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm font-medium text-gray-900">
-                                                        {appointment.patient?.firstName || 'Unknown'} {appointment.patient?.lastName || ''}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {appointment.patient?.phone || 'N/A'}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <div className="text-sm text-gray-900">
-                                                        {appointment.date ? format(new Date(appointment.date), 'MMM d, yyyy') : 'N/A'}
-                                                    </div>
-                                                    <div className="text-sm text-gray-500">
-                                                        {appointment.time || 'N/A'}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(appointment.status)}`}>
-                                                        {appointment.status || 'Unknown'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    {appointment.status === 'scheduled' && (
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(appointment._id, 'in-progress')}
-                                                            className="text-blue-600 hover:text-blue-900 mr-4"
-                                                        >
-                                                            Start
-                                                        </button>
-                                                    )}
-                                                    {appointment.status === 'in-progress' && (
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(appointment._id, 'completed')}
-                                                            className="text-green-600 hover:text-green-900 mr-4"
-                                                        >
-                                                            Complete
-                                                        </button>
-                                                    )}
-                                                    {['scheduled', 'in-progress'].includes(appointment.status) && (
-                                                        <button
-                                                            onClick={() => handleStatusUpdate(appointment._id, 'cancelled')}
-                                                            className="text-red-600 hover:text-red-900"
-                                                        >
-                                                            Cancel
-                                                        </button>
-                                                    )}
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {appointments.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                                                    No appointments found
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                        ) : (
+                                            appointments.map((appointment) => {
+                                                const appointmentDate = new Date(appointment.appointmentTime);
+                                                return (
+                                                    <tr key={appointment._id}>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm font-medium text-gray-900">
+                                                                {appointment.patient?.firstName || 'Unknown'} {appointment.patient?.lastName || ''}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500">
+                                                                {appointment.patient?.phone || 'N/A'}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="text-sm text-gray-900">
+                                                                {format(appointmentDate, 'MMM d, yyyy')}
+                                                            </div>
+                                                            <div className="text-sm text-gray-500">
+                                                                {format(appointmentDate, 'hh:mm a')}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(appointment.status)}`}>
+                                                                {appointment.status || 'Unknown'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                            {appointment.status === 'pending' && (
+                                                                <button
+                                                                    onClick={() => handleStatusUpdate(appointment._id, 'approved')}
+                                                                    className="text-blue-600 hover:text-blue-900 mr-4"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                            )}
+                                                            {appointment.status === 'approved' && (
+                                                                <button
+                                                                    onClick={() => handleStatusUpdate(appointment._id, 'completed')}
+                                                                    className="text-green-600 hover:text-green-900 mr-4"
+                                                                >
+                                                                    Complete
+                                                                </button>
+                                                            )}
+                                                            {['pending', 'approved'].includes(appointment.status) && (
+                                                                <button
+                                                                    onClick={() => handleStatusUpdate(appointment._id, 'cancelled')}
+                                                                    className="text-red-600 hover:text-red-900"
+                                                                >
+                                                                    Cancel
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 

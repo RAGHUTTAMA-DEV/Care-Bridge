@@ -192,140 +192,131 @@ const hospitalService = {
 
 // Queue services
 const queueService = {
-    // Create a new queue for a doctor
-    createQueue: async (queueData) => {
-        try {
-            const { hospitalId, doctorId, date, maxPatients } = queueData;
-            const response = await api.post('/queues', { 
-                hospitalId, 
-                doctorId, 
-                date: new Date(date).toISOString(),
-                maxPatients: maxPatients || 20
-            });
-            return response;
-        } catch (error) {
-            if (error.response?.status === 400) {
-                throw new Error(error.response.data.message || 'Invalid queue data');
-            }
-            throw error;
-        }
-    },
-    
-    // Add patient to queue
-    addPatientToQueue: async (queueId, patientId, reason, appointmentTime = new Date(), priority = 0) => {
-        try {
-            const response = await api.post(`/queues/${queueId}/patients`, {
-                patientId,
-                reason,
-                appointmentTime: new Date(appointmentTime).toISOString(),
-                priority
-            });
-            return response;
-        } catch (error) {
-            if (error.response?.status === 400) {
-                throw new Error(error.response.data.message || 'Invalid patient data');
-            }
-            if (error.response?.status === 404) {
-                throw new Error('Queue not found');
-            }
-            throw error;
-        }
-    },
-    
-    // Update patient status in queue
-    updatePatientStatus: async (queueId, patientId, status) => {
-        try {
-            const response = await api.put(`/queues/${queueId}/patients/${patientId}`, { status });
-            return response;
-        } catch (error) {
-            if (error.response?.status === 400) {
-                throw new Error(error.response.data.message || 'Invalid status update');
-            }
-            if (error.response?.status === 404) {
-                throw new Error('Queue or patient not found');
-            }
-            throw error;
-        }
-    },
-    
-    // Get queue status
-    getQueueStatus: async (queueId) => {
-        try {
-            const response = await api.get(`/queues/${queueId}`);
-            return response;
-        } catch (error) {
-            if (error.response?.status === 404) {
-                throw new Error('Queue not found');
-            }
-            throw error;
-        }
-    },
-    
-    // Get queues for a doctor
-    getDoctorQueues: async (doctorId, date) => {
-        try {
-            const params = date ? { date: new Date(date).toISOString() } : {};
-            const response = await api.get(`/queues/doctor/${doctorId}`, { params });
-            return response;
-        } catch (error) {
-            if (error.response?.status === 404) {
-                throw new Error('Doctor not found');
-            }
-            throw error;
-        }
-    },
-    
-    // Update queue status
-    updateQueueStatus: async (queueId, status) => {
-        try {
-            const response = await api.put(`/queues/${queueId}/status`, { status });
-            return response;
-        } catch (error) {
-            if (error.response?.status === 400) {
-                throw new Error(error.response.data.message || 'Invalid status update');
-            }
-            if (error.response?.status === 404) {
-                throw new Error('Queue not found');
-            }
-            throw error;
-        }
-    },
-    
     // Get all queues for a hospital
     getHospitalQueues: async (hospitalId) => {
         try {
             const response = await api.get(`/queues/hospital/${hospitalId}`);
-            return response;
+            console.log('Queue API Response:', response);
+            return response.data;
         } catch (error) {
-            if (error.response?.status === 404) {
-                throw new Error('Hospital not found');
-            }
+            console.error('Error fetching hospital queues:', error);
             throw error;
         }
     },
-    
-    // Get queues for a patient
-    getPatientQueues: async (patientId) => {
+
+    // Get queue by ID
+    getQueueById: async (queueId) => {
         try {
-            const response = await api.get(`/queues/patient/${patientId}`);
-            return response;
+            const response = await api.get(`/queues/${queueId}`);
+            return response.data;
         } catch (error) {
-            if (error.response?.status === 404) {
-                throw new Error('Patient not found');
-            }
+            console.error('Error fetching queue:', error);
             throw error;
         }
     },
-    
+
+    // Add patient to queue
+    addPatientToQueue: async (queueId, patientId, reason, appointmentTime) => {
+        try {
+            const response = await api.post(`/queues/${queueId}/patients`, {
+                patientId,
+                reason,
+                appointmentTime: appointmentTime || new Date(),
+                status: 'waiting',
+                priority: 'normal'
+            });
+            console.log('Add patient response:', response);
+            return response.data;
+        } catch (error) {
+            console.error('Error adding patient to queue:', error);
+            throw error;
+        }
+    },
+
+    // Update patient status in queue
+    updatePatientStatus: async (queueId, patientId, status) => {
+        try {
+            const response = await api.put(`/queues/${queueId}/patients/${patientId}`, {
+                status
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating patient status:', error);
+            throw error;
+        }
+    },
+
     // Remove patient from queue
-    leaveQueue: async (queueId, patientId) => {
+    removePatientFromQueue: async (queueId, patientId) => {
         try {
             const response = await api.delete(`/queues/${queueId}/patients/${patientId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error removing patient from queue:', error);
+            throw error;
+        }
+    },
+
+    // Get patient's current queue
+    getPatientQueue: async (patientId) => {
+        try {
+            const response = await api.get(`/queues/patient/${patientId}`);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching patient queue:', error);
+            throw error;
+        }
+    },
+
+    // Get doctor's queue
+    getDoctorQueue: async (doctorId) => {
+        try {
+            if (!doctorId) {
+                throw new Error('Doctor ID is required');
+            }
+
+            const response = await api.get(`/queues/doctor/${doctorId}`);
+            console.log('Doctor queue response:', response);
+
+            // Ensure we're returning an array
+            if (!Array.isArray(response)) {
+                console.warn('Expected array response for doctor queue, got:', typeof response);
+                return Array.isArray(response.data) ? response.data : [response.data].filter(Boolean);
+            }
+
             return response;
         } catch (error) {
-            if (error.response?.status === 404) {
-                throw new Error('Queue or patient not found');
-            }
+            console.error('Error fetching doctor queue:', error);
+            // Enhance error message with more details
+            const enhancedError = new Error(
+                error.response?.data?.message || 
+                error.message || 
+                'Failed to fetch doctor queue'
+            );
+            enhancedError.status = error.response?.status;
+            enhancedError.data = error.response?.data;
+            throw enhancedError;
+        }
+    },
+
+    // Update queue status
+    updateQueueStatus: async (queueId, status) => {
+        try {
+            const response = await api.put(`/queues/${queueId}/status`, { status });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating queue status:', error);
+            throw error;
+        }
+    },
+
+    // Update queue average wait time
+    updateQueueWaitTime: async (queueId, averageWaitTime) => {
+        try {
+            const response = await api.put(`/queues/${queueId}/wait-time`, { averageWaitTime });
+            return response.data;
+        } catch (error) {
+            console.error('Error updating queue wait time:', error);
             throw error;
         }
     }

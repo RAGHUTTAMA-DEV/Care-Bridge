@@ -1,12 +1,19 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL;
-
-// Create axios instance with default config
+// Create separate axios instances for different APIs
 const api = axios.create({
-    baseURL: API_URL,
+    baseURL: import.meta.env.VITE_API_URL,
     headers: {
         'Content-Type': 'application/json'
+    }
+});
+
+// Create separate instance for AIML API
+const aimlApi = axios.create({
+    baseURL: 'https://api.aimlapi.com/v1',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ad7fc0396a7341249d50805b747ce132'
     }
 });
 
@@ -378,12 +385,42 @@ const appointmentService = {
 };
 
 
+
+// Chat and OCR services
+const aimlServices = {
+    // Chat service
+    sendMessage: async (message) => {
+        const response = await aimlApi.post('/chat/completions', {
+            model: "gpt-4o",
+            messages: [{ role: "user", content: message }]
+        });
+        return response.data;
+    },
+    
+    // OCR service
+    analyzeImage: async (imageUrl, pages = null) => {
+        const response = await aimlApi.post('/ocr', {
+            model: "mistral/mistral-ocr-latest",
+            document: {
+                type: "document_url",
+                document_url: imageUrl
+            },
+            pages: pages,
+            include_image_base64: true,
+            image_limit: 1,
+            image_min_size: 1
+        });
+        return response.data;
+    }
+};
+
 export {
     authService,
     doctorService,
     hospitalService,
     queueService,
-    appointmentService
+    appointmentService,
+    aimlServices as chatService
 };
 
 export default api;

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { chatService } from '../../services/api';
 
 const ChatWidget = () => {
     const [messages, setMessages] = useState([]);
@@ -54,20 +55,16 @@ const ChatWidget = () => {
             setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
             setInput('');
 
-            const response = await fetch('http://localhost:5000/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ message: userMessage }),
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Failed to get response');
-
-            setMessages(prev => [...prev, { type: 'bot', text: data.response }]);
+            const response = await chatService.sendMessage(userMessage);
+            const botResponse = response.choices?.[0]?.message?.content;
+            
+            if (!botResponse) {
+                throw new Error('Invalid response format from API');
+            }
+            
+            setMessages(prev => [...prev, { type: 'bot', text: botResponse }]);
         } catch (error) {
-            console.error('Chat error:', error);
+            console.error('Chat error:', error.message);
             setMessages(prev => [...prev, { 
                 type: 'error', 
                 text: 'Sorry, there was an error processing your message.' 

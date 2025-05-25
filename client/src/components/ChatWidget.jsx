@@ -55,13 +55,24 @@ const ChatWidget = () => {
             setMessages(prev => [...prev, { type: 'user', text: userMessage }]);
             setInput('');
 
-            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/chat`, {
+            // Fix URL construction to avoid duplicate "/api"
+            const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+            const apiUrl = baseUrl.endsWith('/api') ? `${baseUrl}/chat` : `${baseUrl}/api/chat`;
+            
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ message: userMessage }),
             });
+
+            // Handle non-JSON responses
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+            }
 
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Failed to get response');
@@ -71,7 +82,7 @@ const ChatWidget = () => {
             console.error('Chat error:', error);
             setMessages(prev => [...prev, { 
                 type: 'error', 
-                text: 'Sorry, there was an error processing your message.' 
+                text: `Error: ${error.message || 'Failed to process your message. Please try again.'}`
             }]);
         } finally {
             setLoading(false);
@@ -111,13 +122,24 @@ const ChatWidget = () => {
                     image: reader.result 
                 }]);
 
-                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/analyze-image`, {
+                // Fix URL construction to avoid duplicate "/api"
+                const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+                const apiUrl = baseUrl.endsWith('/api') ? `${baseUrl}/analyze-image` : `${baseUrl}/api/analyze-image`;
+                
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ image: base64Image }),
                 });
+
+                // Handle non-JSON responses
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    const text = await response.text();
+                    throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
+                }
 
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Failed to analyze image');
@@ -138,7 +160,7 @@ const ChatWidget = () => {
             console.error('Image analysis error:', error);
             setMessages(prev => [...prev, { 
                 type: 'error', 
-                text: 'Failed to analyze image. Please try again.' 
+                text: `Error: ${error.message || 'Failed to analyze image. Please try again.'}` 
             }]);
         } finally {
             setLoading(false);

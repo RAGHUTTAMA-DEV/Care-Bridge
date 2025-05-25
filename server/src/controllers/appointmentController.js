@@ -86,10 +86,23 @@ const bookAppointment = async (req, res) => {
 // @route   GET /api/appointments
 // @access  Private
 const getAppointments = async (req, res) => {
+    const startTime = Date.now();
+    console.log('Starting getAppointments request');
     try {
         console.log('Received GET /appointments request');
-        console.log('Query params:', req.query);
-        console.log('Headers:', req.headers);
+        console.log('Request details:', {
+            query: req.query,
+            headers: req.headers,
+            user: req.user ? {
+                id: req.user._id,
+                role: req.user.role,
+                email: req.user.email
+            } : 'No user found'
+        });
+
+        if (!req.user) {
+            throw new Error('Authentication required');
+        }
         const { status, date, upcoming, patientId, doctorId, approvalStatus } = req.query;
         const query = {};
 
@@ -129,6 +142,7 @@ const getAppointments = async (req, res) => {
         }
         if (upcoming === 'true') {
             const now = new Date();
+            now.setHours(0, 0, 0, 0);  // Start of today
             query.date = { $gte: now };
             query.status = { $nin: ['cancelled', 'completed'] };
             console.log('Upcoming appointments query:', {
@@ -136,6 +150,9 @@ const getAppointments = async (req, res) => {
                 query: JSON.stringify(query, null, 2)
             });
         }
+
+        // Performance logging start
+        const dbStartTime = Date.now();
 
         console.log('Final constructed query:', JSON.stringify(query, null, 2));
 
@@ -167,7 +184,20 @@ const getAppointments = async (req, res) => {
             return doc;
         });
 
+        const dbDuration = Date.now() - dbStartTime;
+        console.log('Query execution time:', dbDuration, 'ms');
         console.log(`Found ${appointments.length} appointments matching query`);
+
+        // Log the found appointments in development
+        if (process.env.NODE_ENV === 'development') {
+            console.log('Appointments:', appointments.map(apt => ({
+                id: apt._id,
+                patient: apt.patient?.firstName,
+                doctor: apt.doctor?.firstName,
+                date: apt.date,
+                status: apt.status
+            })));
+        }
         if (appointments.length === 0) {
             // If no appointments found, let's check what appointments we have
             const allAppointments = await Appointment.find()
@@ -184,13 +214,36 @@ const getAppointments = async (req, res) => {
             })));
         }
 
-        res.json(appointmentsWithVirtuals);
-    } catch (error) {
-        console.error('Error getting appointments:', error);
-        res.status(500).json({
-            message: 'Failed to get appointments',
-            error: process.env.NODE_ENV === 'development' ? error.message : undefined
+        const totalDuration = Date.now() - startTime;
+        console.log('Total request duration:', totalDuration, 'ms');
+        
+        res.json({
+            success: true,
+            count: appointmentsWithVirtuals.length,
+            data: appointmentsWithVirtuals,
+            meta: {
+                queryTime: dbDuration,
+                totalTime: totalDuration
+            }
         });
+    } catch (error) {
+        console.error('Error getting appointments:', {
+            error: error.message,
+            stack: error.stack,
+            query: req.query,
+            user: req.user?._id
+        });
+        
+        // Use the route's error handler
+        if (res.handleError) {
+            res.handleError(error);
+        } else {
+            res.status(500).json({
+                success: false,
+                message: 'Failed to get appointments',
+                error: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
+        }
     }
 };
 

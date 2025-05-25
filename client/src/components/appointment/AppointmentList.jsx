@@ -43,6 +43,8 @@ const AppointmentList = () => {
                 return;
             }
 
+            console.log('Fetching appointments with filters:', filters);
+
             const filters = {
                 upcoming: filter === 'upcoming' ? 'true' : undefined
             };
@@ -51,18 +53,21 @@ const AppointmentList = () => {
             }
             const response = await appointmentService.getAppointments(filters);
             
-            // Debug log to see the actual response structure
             console.log('Appointments response:', response);
             
-            // The response is already the data array, no need to access .data
-            if (Array.isArray(response)) {
+            if (response.success) {
+                const appointmentsData = response.data;
                 // Sort appointments by appointmentTime
-                const sortedAppointments = [...response].sort((a, b) => 
-                    new Date(a.appointmentTime) - new Date(b.appointmentTime)
+                // Sort appointments by date
+                const sortedAppointments = [...appointmentsData].sort((a, b) =>
+                    new Date(a.appointmentTime || a.date) - new Date(b.appointmentTime || b.date)
                 );
+
                 setAppointments(sortedAppointments);
+                console.log('Debug:', response.meta); // Log performance metrics
             } else {
-                console.error('Invalid appointments data:', response);
+                console.error('Invalid response format:', response);
+                setError('Failed to load appointments: Invalid response format');
                 setAppointments([]);
             }
             setError(''); // Clear any previous errors

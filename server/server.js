@@ -34,7 +34,7 @@ if (!process.env.OPENAI_API_KEY) {
 }
 
 // API configuration
-const API_KEY = process.env.OPENAI_API_KEY;
+const API_KEY = 'ad7fc0396a7341249d50805b747ce132';
 const API_BASE_URL = 'https://api.aimlapi.com/v1';
 
 // Initialize Express app
@@ -119,7 +119,7 @@ apiRouter.post('/chat', async (req, res) => {
         console.log('Sending chat message:', message);
 
         const apiResponse = await callAPI('/chat/completions', {
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [
                 { role: "user", content: message }
             ]
@@ -155,7 +155,7 @@ apiRouter.post('/analyze-image', async (req, res) => {
         const extractedText = ocrResponse.pages[0].text;
 
         const analysisResponse = await callAPI('/chat/completions', {
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [
                 {
                     role: "system",
